@@ -1,0 +1,35 @@
+notifications:
+  email: true
+
+dist: focal
+language: java
+
+cache:
+  directories:
+    - $HOME/.m2
+
+services:
+  - mysql
+
+before_install:
+  - sudo apt-get update || true
+  - sudo apt-get install -y debconf-utils
+  - sudo debconf-set-selections <<< 'mysql-apt-config mysql-apt-config/select-server select mysql-8.0'
+  - wget https://dev.mysql.com/get/mysql-apt-config_0.8.13-1_all.deb
+  - sudo -E dpkg -i mysql-apt-config_0.8.13-1_all.deb
+  - sudo apt-get update || true
+
+before_script:
+  - sudo -E apt-get -y install mysql-server
+  - sudo mysql -u root -e "CREATE User 'dev'@'localhost' IDENTIFIED BY 'ax2'; GRANT ALL PRIVILEGES ON *.* TO 'dev'@'localhost' WITH GRANT OPTION;"
+  - sudo mysql -u dev -pax2 -e "CREATE DATABASE application_test;"
+
+script:
+  - cd ./application
+  - mvn test
+
+deploy:
+  provider: script
+  script: mvn -Dremote.user=$REMOTE_USER -Dremote.password=$REMOTE_PW tomcat7:deploy
+  on:
+    branch: master
